@@ -1,0 +1,222 @@
+openapi: 3.0.0
+info:
+  title: AdminActionsV1
+  license:
+    name: Copyright © 2021 VMware Airwatch, LLC. All rights reserved.
+  description: Queues various admin actions related to device operations like LockDevice,
+    EnterpriseWipe, Sync etc.
+  version: "1"
+security:
+  - BasicAuth: []
+  - ApiKeyAuth: []
+  - CmsAuth: []
+paths:
+  "/{deviceuuid}/admin-actions/{admin-action}":
+    post:
+      x-attributes:
+        - ValidationFilter(EnforceNullCheck = true)
+      x-authorization:
+        - ClaimsAuthorize(DeviceServicePermission.EXECUTE)
+      summary: Executes the admin action for the device after performing necessary
+        checks like command accessibility, device enrollment status, support for
+        command on device etc.
+      x-sync: false
+      operationId: AdminAction
+      description: Execute Admin Action for specified device id
+      tags:
+        - AdminActionsV1
+      parameters:
+        - in: path
+          name: deviceuuid
+          description: uuid of the device on which admin action is to be executed.
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: admin-action
+          description: The command to execute [Lock, EnterpriseWipe, DeviceWipe,
+            DeviceQuery, ClearPasscode, SyncDevice, CustomMdmCommand, SoftReset,
+            Shutdown, EnterpriseReset].
+          required: true
+          schema:
+            type: string
+        - name: user-uuid
+          in: query
+          description: >-
+            Uuid of the user.
+          schema:
+            type: string
+            description: >-
+              Uuid of the user.
+            nullable: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminActionsRequestV1Model"
+          application/xml:
+            schema:
+              $ref: "#/components/schemas/AdminActionsRequestV1Model"
+        description: Model containing the command XML passed to the API.
+      responses:
+        "202":
+          description: Accepted
+        "400":
+          description: >
+            1. {4001: Command XML cannot be null or empty for custom command.}
+
+            2. {4002: Device is not enrolled.}
+
+            3. {4003: Device not found for this request.}
+
+            4. {4004: Functionality not supported for device type : {DeviceType}.}
+
+            5. {5138: Feature is currently turned off}
+  "/bulk/admin-actions/{admin-action}":
+    post:
+      x-attributes:
+        - ValidationFilter(EnforceNullCheck = true)
+      x-authorization:
+        - ClaimsAuthorize(DeviceServicePermission.EXECUTE)
+      summary: Executes the admin action for the set of devices after performing
+        necessary checks like command accessibility, device enrollment status,
+        support for command on device etc.
+      x-sync: false
+      operationId: BulkAdminAction
+      description: Execute Admin Action for specified set of devices
+      tags:
+        - AdminActionsV1
+      parameters:
+        - in: path
+          name: admin-action
+          description: The command to execute [Lock, EnterpriseWipe, DeviceWipe,
+            DeviceQuery, ClearPasscode, SyncDevice, CustomMdmCommand, SoftReset,
+            Shutdown, EnterpriseReset].
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkAdminActionsV1Request"
+          application/xml:
+            schema:
+              $ref: "#/components/schemas/BulkAdminActionsV1Request"
+        description: Model containing the command XML passed to the API.
+      responses:
+        "207":
+          description: MultiStatus
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionsResponseV1ModelBulkResponseV1"
+        "400":
+          description: |
+            1. {4001: Command is not supported.}
+
+            2. {5138: Feature is currently turned off}
+servers:
+  - url: https://www.api.airwatch.com/devices
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: aw-tenant-code
+    CmsAuth:
+      type: apiKey
+      in: header
+      name: authorization
+  schemas:
+    AssingedDeviceV1Model:
+      type: object
+      properties:
+        device_uuid:
+          type: string
+          description: Device UUID.
+          format: uuid
+        user_uuid:
+          type: string
+          description: User UUID.
+          format: uuid
+      description: Assinged Device Model.
+    AdminActionsResponseV1Model:
+      type: object
+      properties:
+        device_uuid:
+          type: string
+          description: Gets or sets the DeviceUuid.
+          format: uuid
+      description: Defines the requested device item.
+    AdminActionsResponseV1ModelBulkResponseFaultV1:
+      type: object
+      properties:
+        request_item:
+          $ref: '#/components/schemas/AdminActionsResponseV1Model'
+        message:
+          type: string
+          description: The error message for the failure of request item.
+          nullable: true
+      description: Defines the fault response for failed bulk operation.
+    AdminActionsResponseV1ModelBulkResponseV1:
+      type: object
+      properties:
+        total_count:
+          type: integer
+          description: The total count of requests.
+          format: int32
+        accepted_count:
+          type: integer
+          description: The count of requests succeeded.
+          format: int32
+        failed_count:
+          type: integer
+          description: The count of requests failed.
+          format: int32
+        faults:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminActionsResponseV1ModelBulkResponseFaultV1'
+          description: The details of the requests failed.
+          nullable: true
+      description: Defines the response for bulk operations.
+    BulkAdminActionsV1Request:
+      type: object
+      description: Bulk Admin Actions Model
+      properties:
+        assigned_devices:
+          description: List of Device Uuids.
+          type: array
+          items:
+            $ref: "#/components/schemas/AssingedDeviceV1Model"
+        payload:
+          x-attributes: null
+          description: command payload e.g. XML for custom command, security pin for enterprise-wipe.
+          type: string
+    AdminActionType:
+      enum:
+        - UNKOWN
+        - ENTERPRISE_WIPE
+      type: string
+    AdminActionsRequestV1Model:
+      type: object
+      properties:
+        assigned_devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssingedDeviceV1Model'
+          description: Device unique properties like user uuid and device uuid.
+          nullable: true
+        action:
+          $ref: '#/components/schemas/AdminActionType'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Metadata Associated for the Action.
+          nullable: true
+      description: Admin Action Request Model.
