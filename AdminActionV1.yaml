@@ -136,7 +136,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AssingedDeviceV1Model"
-        payload:
-          x-attributes: null
-          description: command payload e.g. XML for custom command, security pin for enterprise-wipe.
-          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Metadata Associated for the Action.
+          nullable: true
